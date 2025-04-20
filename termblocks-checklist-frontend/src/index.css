@@ -1,0 +1,6 @@
+/* Tailwind base styles will be added after Tailwind setup */
+body {
+  margin: 0;
+  font-family: system-ui, sans-serif;
+  background: #f9fafb;
+}
