@@ -5,6 +5,75 @@ import { Checklist } from '../types';
 import ChecklistCard from './ChecklistCard';
 import Snackbar from './Snackbar';
 
+interface ChecklistViewSectionProps {
+  checklist: Checklist;
+  onClose: () => void;
+  onDelete: (checklist: Checklist) => void;
+}
+
+const ChecklistViewSection: React.FC<ChecklistViewSectionProps> = ({ checklist, onClose, onDelete }) => {
+  const [completed, setCompleted] = React.useState<{ [key: string]: boolean }>({});
+  const [uploadedFiles, setUploadedFiles] = React.useState<{ [key: string]: File | null }>({});
+
+  // Reset state on checklist change
+  React.useEffect(() => {
+    setCompleted({});
+    setUploadedFiles({});
+  }, [checklist.id]);
+
+  return (
+    <section className="w-full flex justify-center mt-8">
+      <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg relative">
+        <button
+          className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl font-bold"
+          onClick={onClose}
+        >
+          &times;
+        </button>
+        <h3 className="text-xl font-bold mb-2">{checklist.title}</h3>
+        <div className="mb-4 text-gray-600">{checklist.description}</div>
+        {checklist.categories.length === 0 ? (
+          <div className="text-center text-gray-500">No categories. This checklist will be deleted.</div>
+        ) : (
+          checklist.categories.map((cat, catIdx) => (
+            <div key={catIdx} className="mb-4">
+              <div className="font-semibold mb-2">{cat.name}</div>
+              <ul className="space-y-2">
+                {cat.items.map((item, itemIdx) => {
+                  const key = `${catIdx}-${itemIdx}`;
+                  return (
+                    <li key={itemIdx} className="flex items-center gap-3">
+                      <input
+                        type="checkbox"
+                        className="accent-blue-600"
+                        checked={!!completed[key]}
+                        onChange={() => setCompleted((prev) => ({ ...prev, [key]: !prev[key] }))}
+                      />
+                      <span className={completed[key] ? "line-through text-gray-400" : ""}>{item.name}</span>
+                      <input
+                        type="file"
+                        className="ml-2"
+                        onChange={e => {
+                          const file = e.target.files && e.target.files[0];
+                          setUploadedFiles((prev) => ({ ...prev, [key]: file || null }));
+                        }}
+                      />
+                      {uploadedFiles[key] && (
+                        <span className="text-xs text-green-700 ml-1">{uploadedFiles[key]?.name}</span>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            </div>
+          ))
+        )}
+        <button className="mt-4 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 font-medium shadow-sm transition" onClick={() => onDelete(checklist)}>Delete Checklist</button>
+      </div>
+    </section>
+  );
+};
+
 const ChecklistList = () => {
   const [checklists, setChecklists] = useState<Checklist[]>([]);
   const [loading, setLoading] = useState(false);
@@ -122,36 +191,11 @@ const ChecklistList = () => {
         </ul>
       </div>
       {viewChecklist && (
-        <section className="w-full flex justify-center mt-8">
-          <div className="bg-white rounded-xl shadow-lg p-6 w-full max-w-lg relative">
-            <button
-              className="absolute top-2 right-2 text-gray-400 hover:text-gray-700 text-2xl font-bold"
-              onClick={() => setViewChecklist(null)}
-            >
-              &times;
-            </button>
-            <h3 className="text-xl font-bold mb-2">{viewChecklist.title}</h3>
-            <div className="mb-4 text-gray-600">{viewChecklist.description}</div>
-            {viewChecklist.categories.length === 0 ? (
-              <div className="text-center text-gray-500">No categories. This checklist will be deleted.</div>
-            ) : (
-              viewChecklist.categories.map((cat, catIdx) => (
-                <div key={catIdx} className="mb-4">
-                  <div className="font-semibold mb-2">{cat.name}</div>
-                  <ul className="space-y-2">
-                    {cat.items.map((item, itemIdx) => (
-                      <li key={itemIdx} className="flex items-center gap-2">
-                        <input type="checkbox" className="accent-blue-600" disabled />
-                        <span>{item.name}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              ))
-            )}
-            <button className="mt-4 px-4 py-2 bg-red-100 text-red-800 rounded hover:bg-red-200 font-medium shadow-sm transition" onClick={() => handleDeleteChecklist(viewChecklist)}>Delete Checklist</button>
-          </div>
-        </section>
+        <ChecklistViewSection
+          checklist={viewChecklist}
+          onClose={() => setViewChecklist(null)}
+          onDelete={handleDeleteChecklist}
+        />
       )}
       {snackbar && (
         <Snackbar
