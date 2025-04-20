@@ -13,7 +13,7 @@ const App: React.FC = () => {
             <Link to="/builder" className="bg-blue-600 hover:bg-blue-700 text-white rounded px-4 py-2 font-semibold shadow-lg transition ml-2" title="Add a list">
               Add a list
             </Link>
-            <h1 className="text-3xl font-bold text-blue-700 tracking-tight text-center flex-1">Termblocks Checklist Builder</h1>
+            <Link to="/" className="text-6xl font-extrabold text-blue-700 tracking-tight text-center flex-1 hover:text-blue-900 focus:outline-none" style={{ textDecoration: 'none' }}>Termblocks Checklist Builder</Link>
             <Link className="px-3 py-2 rounded bg-green-100 hover:bg-green-200 transition flex items-center gap-1 mr-2" to="/public">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12H9m0 0H5m4 0h6m4 0h-4" /></svg>
               View a list

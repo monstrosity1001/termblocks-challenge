@@ -1,5 +1,5 @@
 import React from 'react';
-
+import { Link } from 'react-router-dom';
 import { useState } from 'react';
 
 interface ChecklistItem {
@@ -44,6 +44,12 @@ const ChecklistPublicView: React.FC = () => {
 
   return (
     <div className="p-4">
+      <Link
+        to="/"
+        className="inline-block mb-4 px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 font-semibold shadow"
+      >
+        Return to Home
+      </Link>
       <h2 className="text-xl font-semibold mb-4">Public Checklist View</h2>
       <form
         className="flex gap-2 mb-6"

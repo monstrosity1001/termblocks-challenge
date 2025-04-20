@@ -110,11 +110,11 @@ const ChecklistList: React.FC = () => {
                   <button
                     className="px-3 py-1 bg-green-50 text-green-800 rounded hover:bg-green-100 font-medium shadow-sm transition"
                     onClick={() => {
-                      navigator.clipboard.writeText(`${window.location.origin}/public/${cl.public_id}`);
-                      setSnackbar('Public link copied to clipboard!');
+                      navigator.clipboard.writeText(cl.public_id);
+                      setSnackbar('Public ID copied to clipboard!');
                     }}
                   >
-                    Copy Public Link
+                    Copy Public ID
                   </button>
                 )}
                 {/* Clone button */}
@@ -141,6 +141,28 @@ const ChecklistList: React.FC = () => {
                   }}
                 >
                   Clone
+                </button>
+                {/* Delete button */}
+                <button
+                  className="px-3 py-1 bg-red-100 text-red-800 rounded hover:bg-red-200 font-medium shadow-sm transition ml-2"
+                  onClick={async () => {
+                    if (!window.confirm('Are you sure you want to delete this checklist? This action cannot be undone.')) return;
+                    try {
+                      setLoading(true);
+                      setError(null);
+                      const res = await fetch(`http://localhost:8000/checklists/${cl.id}`, { method: 'DELETE' });
+                      if (!res.ok) throw new Error('Failed to delete checklist');
+                      // Remove from local state
+                      setChecklists(checklists.filter((c) => c.id !== cl.id));
+                      setSnackbar('Checklist deleted!');
+                    } catch (err: any) {
+                      setSnackbar(err.message || 'Delete failed');
+                    } finally {
+                      setLoading(false);
+                    }
+                  }}
+                >
+                  Delete
                 </button>
               </div>
             </li>
