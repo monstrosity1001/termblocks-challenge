@@ -1,46 +1,84 @@
-# Termblocks Checklist Builder Backend
+# Termblocks Custom Checklist Builder
 
-This is the backend for the Termblocks Custom Checklist Builder, built with FastAPI and SQLite (easily swappable for PostgreSQL). It supports checklist creation, editing, cloning, file uploads, and public sharing.
+This repository contains a full-stack solution for the Termblocks Full Stack Engineer case study: a Custom Checklist Builder application.
 
-## Features
-- Create, edit, clone checklists (with categories and items)
-- Upload files to checklist items (.txt, .pdf, .xlsx, <10MB)
-- Public sharing via unique link
-- File serving for uploaded files
-- CORS enabled for frontend integration
+## Overview
+- **Checklist Creation**: Build checklists with categories and items. Each item can accept file uploads.
+- **Persistence & Editing**: All checklists are saved to a database and can be edited or cloned.
+- **Sharing**: Share checklists via a public link. Third-party users can upload files to items but cannot edit structure.
+- **File Uploads**: Supports `.txt`, `.pdf`, `.xlsx` files up to 10MB.
+- **Tech Stack**: React + TypeScript (frontend), FastAPI + SQLite (backend), Docker-ready, GitHub version control.
+
+---
+
+## Project Structure
+
+```
+Termblocks_challenge/
+│
+├── termblocks-checklist-backend/   # FastAPI backend
+│   ├── main.py
+│   ├── requirements.txt
+│   └── README.md
+│
+├── termblocks-checklist-frontend/  # React + TS frontend
+│   ├── src/
+│   ├── package.json
+│   └── README.md
+│
+├── .gitignore
+├── README.md   # (this file)
+└── test_backend.http  # Example API calls
+```
+
+---
 
 ## Getting Started
 
 ### Prerequisites
 - Python 3.9+
+- Node.js 18+
 - (Optional) Docker
 
-### Local Development
-1. Install dependencies:
-   ```bash
-   pip install -r requirements.txt
-   ```
-2. Run the server:
-   ```bash
-   uvicorn main:app --reload
-   ```
-3. API will be available at `http://localhost:8000`
+### Backend (FastAPI)
+```sh
+cd termblocks-checklist-backend
+pip install -r requirements.txt
+uvicorn main:app --reload
+```
+- API docs: [http://localhost:8000/docs](http://localhost:8000/docs)
 
-### Docker
-_Coming soon_
+### Frontend (React + Vite)
+```sh
+cd termblocks-checklist-frontend
+npm install
+npm run dev
+```
+- App: [http://localhost:5173](http://localhost:5173) (default)
 
-## Database
-- Default: SQLite (`checklists.db`)
-- To use PostgreSQL, update `DATABASE_URL` in `main.py`.
+---
 
-## API Endpoints
-- `GET /` - Health check
-- _Checklist, category, item, upload, and sharing endpoints will be documented as implemented._
+## API Example
+See `test_backend.http` for sample API requests (can be used in VSCode REST Client or Insomnia).
 
-## File Uploads
-- Allowed types: `.txt`, `.pdf`, `.xlsx`
+---
+
+## Repository
+- Remote: [github.com/monstrosity1001/termblocks-challenge](https://github.com/monstrosity1001/termblocks-challenge)
+
+---
+
+## Features
+- Create, edit, clone checklists (with nested categories/items)
+- Upload files to items (type/size restricted)
+- Share via unique public link
+- Public upload interface (no structure editing)
+- Ready for containerization and deployment
+
+---
+
+## Case Study: Termblocks
+This project was built for the Termblocks Full Stack Engineer case study. For a technical walkthrough, see the backend and frontend READMEs, or contact the author.
+
 - Max size: 10MB
 - Files stored under `/uploads`
-
-## License
-MIT
