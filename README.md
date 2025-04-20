@@ -57,7 +57,7 @@ cd termblocks-checklist-frontend
 npm install
 npm run dev
 ```
-- App: [http://localhost:5173](http://localhost:5173) (default)
+- App: [http://localhost:8080](http://localhost:8080) (default)
 
 ---
 

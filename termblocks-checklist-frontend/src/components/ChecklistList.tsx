@@ -48,169 +48,113 @@ const ChecklistList: React.FC = () => {
   }, [setChecklists]);
 
   return (
-    <div className="p-4">
-      <h2 className="text-xl font-semibold mb-2">All Checklists</h2>
-      {loading && <div className="text-gray-400">Loading...</div>}
-      {error && <div className="text-red-500">{error}</div>}
-      <ul className="mt-2 space-y-2">
-        {checklists.map((cl) => (
-          <li key={cl.id} className="bg-white shadow rounded px-4 py-2">
-            <div className="flex items-center gap-2">
-              <span className="font-semibold">{cl.title}</span>
-              {cl.is_public ? (
-                <span className="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">Public</span>
-              ) : (
-                <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded">Private</span>
-              )}
-            </div>
-            <div className="text-sm text-gray-500">{cl.description}</div>
-            <div className="mt-2 flex gap-2">
-              <button
-                className="px-2 py-1 bg-gray-100 text-gray-800 rounded hover:bg-gray-200"
-                onClick={() => setViewChecklist(cl)}
-              >
-                View
-              </button>
-              <button
-                className="px-2 py-1 bg-yellow-100 text-yellow-800 rounded hover:bg-yellow-200"
-                onClick={() => handleEditChecklist(cl)}
-              >
-                Edit
-              </button>
-              {!cl.is_public && (
+    <div className="p-4 flex flex-col items-center min-h-[80vh]">
+      <div className="w-full max-w-2xl">
+        <hr className="my-6 border-gray-300" />
+      </div>
+      <h2 className="text-2xl font-bold mb-4 text-blue-800 tracking-tight">All Checklists</h2>
+      <div className="max-w-2xl w-full mx-auto bg-white/80 rounded-xl shadow-lg p-4 md:p-8">
+        {loading && <div className="text-gray-400">Loading...</div>}
+        {error && <div className="text-red-500">{error}</div>}
+        <ul className="mt-2 space-y-4">
+          {checklists.map((cl) => (
+            <li key={cl.id} className="bg-white rounded-lg shadow-md px-4 py-3 flex flex-col gap-1 hover:shadow-lg transition border border-gray-100">
+              <div className="flex items-center gap-3">
+                <span className="font-semibold text-lg text-gray-800">{cl.title}</span>
+                {cl.is_public ? (
+                  <span className="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">Public</span>
+                ) : (
+                  <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded">Private</span>
+                )}
+              </div>
+              <div className="text-sm text-gray-500 mb-1">{cl.description}</div>
+              <div className="flex flex-wrap gap-2 mt-1">
                 <button
-                  className="px-2 py-1 bg-purple-100 text-purple-800 rounded hover:bg-purple-200"
+                  className="px-3 py-1 bg-blue-50 text-blue-800 rounded hover:bg-blue-100 font-medium shadow-sm transition"
+                  onClick={() => setViewChecklist(cl)}
+                >
+                  View
+                </button>
+                <button
+                  className="px-3 py-1 bg-yellow-50 text-yellow-800 rounded hover:bg-yellow-100 font-medium shadow-sm transition"
+                  onClick={() => handleEditChecklist(cl)}
+                >
+                  Edit
+                </button>
+                {/* Make Public button if not public */}
+                {!cl.is_public && (
+                  <button
+                    className="px-3 py-1 bg-purple-50 text-purple-800 rounded hover:bg-purple-100 font-medium shadow-sm transition"
+                    onClick={async () => {
+                      try {
+                        const res = await fetch(`http://localhost:8000/checklists/${cl.id}/make_public`, { method: 'POST' });
+                        if (!res.ok) throw new Error('Failed to make public');
+                        const data = await res.json();
+                        navigator.clipboard.writeText(data.public_url);
+                        setSnackbar('Checklist is now public! Public link copied to clipboard!');
+                        setLoading(true);
+                        fetch('http://localhost:8000/checklists')
+                          .then((res) => res.json())
+                          .then(setChecklists)
+                          .finally(() => setLoading(false));
+                      } catch (err: any) {
+                        setSnackbar(err.message || 'Failed to make public');
+                      }
+                    }}
+                  >
+                    Make Public
+                  </button>
+                )}
+                {/* Copy Public Link button if public */}
+                {cl.is_public && (
+                  <button
+                    className="px-3 py-1 bg-green-50 text-green-800 rounded hover:bg-green-100 font-medium shadow-sm transition"
+                    onClick={() => {
+                      navigator.clipboard.writeText(`${window.location.origin}/public/${cl.public_id}`);
+                      setSnackbar('Public link copied to clipboard!');
+                    }}
+                  >
+                    Copy Public Link
+                  </button>
+                )}
+                {/* Clone button */}
+                <button
+                  className="px-3 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200 font-medium shadow-sm transition"
                   onClick={async () => {
                     try {
-                      const res = await fetch(`http://localhost:8000/checklists/${cl.id}/make_public`, { method: 'POST' });
-                      if (!res.ok) throw new Error('Failed to make public');
-                      const data = await res.json();
-                      navigator.clipboard.writeText(data.public_url);
-                      setSnackbar('Checklist is now public! Public link copied to clipboard!');
-                      // Refresh list to update is_public
+                      const res = await fetch(`http://localhost:8000/checklists/${cl.id}/clone`, { method: 'POST' });
+                      if (!res.ok) throw new Error('Failed to clone checklist');
                       setLoading(true);
+                      setError(null);
                       fetch('http://localhost:8000/checklists')
-                        .then((res) => res.json())
+                        .then((res) => {
+                          if (!res.ok) throw new Error('Failed to fetch checklists');
+                          return res.json();
+                        })
                         .then(setChecklists)
+                        .catch((err) => setError(err.message))
                         .finally(() => setLoading(false));
+                      setSnackbar('Checklist cloned!');
                     } catch (err: any) {
-                      setSnackbar(err.message || 'Failed to make public');
+                      setSnackbar(err.message || 'Clone failed');
                     }
                   }}
                 >
-                  Make Public
+                  Clone
                 </button>
-              )}
-              <button
-                className="px-2 py-1 bg-blue-100 text-blue-800 rounded hover:bg-blue-200"
-                onClick={async () => {
-                  try {
-                    const res = await fetch(`http://localhost:8000/checklists/${cl.id}/clone`, { method: 'POST' });
-                    if (!res.ok) throw new Error('Failed to clone checklist');
-                    // Refresh list
-                    setLoading(true);
-                    setError(null);
-                    fetch('http://localhost:8000/checklists')
-                      .then((res) => {
-                        if (!res.ok) throw new Error('Failed to fetch checklists');
-                        return res.json();
-                      })
-                      .then(setChecklists)
-                      .catch((err) => setError(err.message))
-                      .finally(() => setLoading(false));
-                    alert('Checklist cloned!');
-                  } catch (err: any) {
-                    alert(err.message || 'Clone failed');
-                  }
-                }}
-              >
-                Clone
-              </button>
-              {cl.is_public && (
-                <button
-                  className="px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
-                  onClick={() => {
-                    const url = `${window.location.origin.replace('5173', '8080')}/public/${cl.public_id}`;
-                    navigator.clipboard.writeText(url);
-                    setSnackbar('Public link copied to clipboard!');
-                  }}
-                >
-                  Copy Public Link
-                </button>
-              )}
-            </div>
-          </li>
-        ))}
-      </ul>
-      {!loading && !error && checklists.length === 0 && (
-        <div className="text-gray-500">No checklists found.</div>
-      )}
-      {viewChecklist && (
-        <div className="fixed inset-0 flex items-center justify-center bg-black bg-opacity-40 z-50">
-          <div className="bg-white p-6 rounded shadow-lg max-w-lg w-full relative">
-            <button className="absolute top-2 right-2 text-gray-500" onClick={() => setViewChecklist(null)}>&times;</button>
-            <h3 className="text-xl font-bold mb-2">{viewChecklist.title}</h3>
-            <div className="mb-2 flex items-center gap-2">
-              {viewChecklist.is_public ? (
-                <span className="inline-block bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">Public</span>
-              ) : (
-                <span className="inline-block bg-gray-200 text-gray-700 text-xs px-2 py-0.5 rounded">Private</span>
-              )}
-              {viewChecklist.is_public && (
-                <button
-                  className="ml-2 px-2 py-0.5 bg-green-100 text-green-800 rounded hover:bg-green-200 text-xs"
-                  onClick={() => {
-                    const url = `${window.location.origin.replace('5173', '8080')}/public/${viewChecklist.public_id}`;
-                    navigator.clipboard.writeText(url);
-                    setSnackbar('Public link copied to clipboard!');
-                  }}
-                >
-                  Copy Public Link
-                </button>
-              )}
-            </div>
-            <p className="mb-2 text-gray-700">{viewChecklist.description}</p>
-            {!viewChecklist.is_public && (
-              <div className="mb-2 text-sm text-gray-500">This checklist is private. Make it public to share a link.</div>
-            )}
-            {viewChecklist.categories.map((cat: any) => (
-              <div key={cat.id} className="mb-3">
-                <div className="font-semibold">{cat.name}</div>
-                <ul className="list-disc ml-6">
-                  {cat.items.map((item: any) => (
-                    <li key={item.id}>
-                      {item.name}
-                      {item.uploads && item.uploads.length > 0 && (
-                        <div className="ml-2 text-xs text-gray-600">
-                          Uploaded: {item.uploads.map((f: any, i: number) => (
-                            <a
-                              key={f.id}
-                              href={`http://localhost:8000/public_uploads/${f.id}`}
-                              target="_blank"
-                              rel="noopener noreferrer"
-                              className="underline mr-2"
-                            >
-                              {f.filename}
-                            </a>
-                          ))}
-                        </div>
-                      )}
-                    </li>
-                  ))}
-                </ul>
               </div>
-            ))}
-          </div>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {/* Snackbar for feedback */}
+      {snackbar && (
+        <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded shadow z-50 animate-fade-in">
+          {snackbar}
+          <button className="ml-2 text-white font-bold" onClick={() => setSnackbar(null)}>&times;</button>
         </div>
       )}
-    {/* Snackbar for feedback */}
-    {snackbar && (
-      <div className="fixed bottom-4 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-4 py-2 rounded shadow z-50 animate-fade-in">
-        {snackbar}
-        <button className="ml-2 text-white font-bold" onClick={() => setSnackbar(null)}>&times;</button>
-      </div>
-    )}
-  </div>
+    </div>
   );
 };
 
