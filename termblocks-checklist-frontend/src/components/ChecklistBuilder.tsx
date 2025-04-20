@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
+import { useUserStore } from '../store/userStore';
 
 interface ItemInput {
   name: string;
@@ -17,6 +18,7 @@ interface CategoryInput {
 }
 
 const ChecklistBuilder: React.FC = () => {
+  const user = useUserStore((state) => state.user);
   // Track file inputs by [catIdx][itemIdx]
   const [itemFiles, setItemFiles] = useState<{ [key: string]: File | null }>({});
   const [uploading, setUploading] = useState(false);
@@ -98,7 +100,8 @@ const ChecklistBuilder: React.FC = () => {
           categories: categories.map(cat => ({
             name: cat.name,
             items: cat.items.map(item => ({ name: item.name }))
-          }))
+          })),
+          owner_id: user ? Number(user.id) : undefined // Ensure checklist is associated with the logged-in user
         };
         try {
           let url = 'http://localhost:8000/checklists';

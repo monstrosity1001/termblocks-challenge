@@ -7,11 +7,23 @@ export interface ChecklistCategory {
   items: ChecklistItem[];
 }
 
+export interface User {
+  id: string;
+  username: string;
+  username_hash: string;
+}
+
 export interface Checklist {
-  id: number;
+  id: string;
   title: string;
   description: string;
-  public_id: string;
-  is_public: boolean;
   categories: ChecklistCategory[];
+  public_id?: string;
+  owner_id: string;
+  is_public: boolean;
+}
+
+export interface UserChecklist {
+  user_id: string;
+  checklist_id: string;
 }

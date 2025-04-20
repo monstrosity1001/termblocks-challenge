@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useUserStore } from '../store/userStore';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { Checklist } from '../types';
 
@@ -90,10 +91,13 @@ const ChecklistList = () => {
     }
   }, [location, navigate]);
 
+  const user = useUserStore((state) => state.user);
+
   useEffect(() => {
+    if (!user) return;
     setLoading(true);
     setError(null);
-    fetch('http://localhost:8000/checklists')
+    fetch(`http://localhost:8000/checklists?user_id=${user.id}`)
       .then((res) => {
         if (!res.ok) throw new Error('Failed to fetch checklists');
         return res.json();
@@ -101,13 +105,14 @@ const ChecklistList = () => {
       .then(setChecklists)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [user]);
 
   const handleEditChecklist = (checklist: Checklist) => {
     navigate('/builder', { state: { checklist } });
   };
 
   const handleMakePublic = async (checklist: Checklist) => {
+  if (!user) return;
     try {
       const res = await fetch(`http://localhost:8000/checklists/${checklist.id}/make_public`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to make public');
@@ -125,17 +130,23 @@ const ChecklistList = () => {
   };
 
   const handleCopyPublicLink = (checklist: Checklist) => {
-    navigator.clipboard.writeText(checklist.public_id);
-    setSnackbar('Public ID copied to clipboard!');
+    if (checklist.public_id) {
+      navigator.clipboard.writeText(checklist.public_id);
+      setSnackbar('Public ID copied to clipboard!');
+    } else {
+      setSnackbar('No public link available for this checklist.');
+    }
   };
 
+
   const handleCloneChecklist = async (checklist: Checklist) => {
+  if (!user) return;
     try {
       const res = await fetch(`http://localhost:8000/checklists/${checklist.id}/clone`, { method: 'POST' });
       if (!res.ok) throw new Error('Failed to clone checklist');
       setLoading(true);
       setError(null);
-      fetch('http://localhost:8000/checklists')
+      fetch(`http://localhost:8000/checklists?user_id=${user.id}`)
         .then((res) => {
           if (!res.ok) throw new Error('Failed to fetch checklists');
           return res.json();
@@ -150,10 +161,20 @@ const ChecklistList = () => {
   };
 
   const handleDeleteChecklist = async (checklist: Checklist) => {
+    if (!user) return;
     if (!window.confirm('Are you sure you want to delete this checklist? This action cannot be undone.')) return;
     try {
       setLoading(true);
       setError(null);
+      // If user is not owner, remove only from their view
+      if (checklist.owner_id !== user.id) {
+        await fetch(`http://localhost:8000/user_checklists/${user.id}/${checklist.id}`, { method: 'DELETE' });
+        setChecklists((prev) => prev.filter((c) => c.id !== checklist.id));
+        setLoading(false);
+        setSnackbar('Checklist removed from your files');
+        return;
+      }
+      // If owner, delete globally
       const res = await fetch(`http://localhost:8000/checklists/${checklist.id}`, { method: 'DELETE' });
       if (!res.ok) throw new Error('Failed to delete checklist');
       setChecklists(checklists.filter((c) => c.id !== checklist.id));
@@ -175,19 +196,31 @@ const ChecklistList = () => {
         {loading && <div className="text-gray-400">Loading...</div>}
         {error && <div className="text-red-500">{error}</div>}
         <ul className="mt-2 space-y-4">
-          {checklists.map((checklist) => (
-            <li key={checklist.id}>
-              <ChecklistCard
-                checklist={checklist}
-                onView={setViewChecklist}
-                onEdit={handleEditChecklist}
-                onMakePublic={handleMakePublic}
-                onCopyPublicLink={handleCopyPublicLink}
-                onClone={handleCloneChecklist}
-                onDelete={handleDeleteChecklist}
-              />
-            </li>
-          ))}
+          {checklists
+            .filter((checklist) => checklist.owner_id === user?.id || checklist.is_public)
+            .map((checklist) => (
+              <li key={checklist.id}>
+                <ChecklistCard
+                  checklist={checklist}
+                  onView={(cl) => {
+                    // If viewing a public list not owned, add to user's files
+                    if (cl.is_public && cl.owner_id !== user?.id) {
+                      fetch(`http://localhost:8000/user_checklists`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ user_id: user?.id, checklist_id: cl.id })
+                      });
+                    }
+                    setViewChecklist(cl);
+                  }}
+                  onEdit={handleEditChecklist}
+                  onMakePublic={handleMakePublic}
+                  onCopyPublicLink={handleCopyPublicLink}
+                  onClone={handleCloneChecklist}
+                  onDelete={handleDeleteChecklist}
+                />
+              </li>
+            ))}
         </ul>
       </div>
       {viewChecklist && (

@@ -1,4 +1,5 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
+import hashlib
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, DateTime, Boolean
@@ -18,6 +19,11 @@ engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False})
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
+class User(Base):
+    __tablename__ = "users"
+    id = Column(Integer, primary_key=True, index=True)
+    username_hash = Column(String, unique=True, nullable=False)
+
 class Checklist(Base):
     __tablename__ = "checklists"
     id = Column(Integer, primary_key=True, index=True)
@@ -25,7 +31,9 @@ class Checklist(Base):
     description = Column(Text, nullable=True)
     public_id = Column(String, unique=True, index=True, default=lambda: str(uuid4()))
     is_public = Column(Boolean, default=False)
+    owner_id = Column(Integer, ForeignKey('users.id'), nullable=True)
     categories = relationship("Category", back_populates="checklist", cascade="all, delete-orphan")
+    owner = relationship("User")
 
 class Category(Base):
     __tablename__ = "categories"
@@ -109,12 +117,14 @@ class ChecklistCreateSchema(BaseModel):
     description: str = ""
     categories: list[CategoryCreateSchema] = []
     is_public: bool = False
+    owner_id: int = None
 
 class ChecklistSchema(ChecklistCreateSchema):
     id: int
     public_id: str
     is_public: bool
     categories: list[CategorySchema]
+    owner_id: int = None
     class Config:
         orm_mode = True
 
@@ -122,13 +132,34 @@ class ChecklistSchema(ChecklistCreateSchema):
 # API Endpoints
 # ----------------------
 
+@app.post("/users", response_model=dict)
+def create_user(username: str, db: Session = Depends(get_db)):
+    username_hash = hashlib.sha256(username.encode()).hexdigest()
+    user = db.query(User).filter_by(username_hash=username_hash).first()
+    if not user:
+        user = User(username_hash=username_hash)
+        db.add(user)
+        db.commit()
+        db.refresh(user)
+    return {"id": user.id, "username_hash": user.username_hash}
+
+
+from fastapi import Query
+
 @app.get("/checklists", response_model=list[ChecklistSchema])
-def list_checklists(db: Session = Depends(get_db)):
-    return db.query(Checklist).all()
+def list_checklists(user_id: int = Query(None), db: Session = Depends(get_db)):
+    query = db.query(Checklist)
+    if user_id is not None:
+        query = query.filter(Checklist.owner_id == user_id)
+    return query.all()
 
 @app.post("/checklists", response_model=ChecklistSchema)
 def create_checklist(data: ChecklistCreateSchema, db: Session = Depends(get_db)):
-    checklist = Checklist(title=data.title, description=data.description)
+    checklist = Checklist(
+        title=data.title,
+        description=data.description,
+        owner_id=data.owner_id
+    )
     for cat in data.categories:
         category = Category(name=cat.name)
         for item in cat.items:
@@ -153,6 +184,7 @@ def update_checklist(checklist_id: int, data: ChecklistCreateSchema, db: Session
         raise HTTPException(status_code=404, detail="Checklist not found")
     checklist.title = data.title
     checklist.description = data.description
+    checklist.owner_id = data.owner_id
     checklist.categories.clear()
     for cat in data.categories:
         category = Category(name=cat.name)
