@@ -1,7 +1,7 @@
 from fastapi import FastAPI, UploadFile, File, HTTPException, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, DateTime
+from sqlalchemy import create_engine, Column, Integer, String, ForeignKey, Text, DateTime, Boolean
 from sqlalchemy.orm import sessionmaker, relationship, declarative_base, Session
 from typing import List, Optional
 from uuid import uuid4
@@ -24,6 +24,7 @@ class Checklist(Base):
     title = Column(String, nullable=False)
     description = Column(Text, nullable=True)
     public_id = Column(String, unique=True, index=True, default=lambda: str(uuid4()))
+    is_public = Column(Boolean, default=False)
     categories = relationship("Category", back_populates="checklist", cascade="all, delete-orphan")
 
 class Category(Base):
@@ -63,7 +64,6 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.mount("/uploads", StaticFiles(directory=UPLOAD_DIR), name="uploads")
 
 def get_db():
     db = SessionLocal()
@@ -108,10 +108,12 @@ class ChecklistCreateSchema(BaseModel):
     title: str
     description: str = ""
     categories: list[CategoryCreateSchema] = []
+    is_public: bool = False
 
 class ChecklistSchema(ChecklistCreateSchema):
     id: int
     public_id: str
+    is_public: bool
     categories: list[CategorySchema]
     class Config:
         orm_mode = True
@@ -178,8 +180,9 @@ def make_public_checklist(checklist_id: int, db: Session = Depends(get_db)):
     if not checklist.public_id:
         from uuid import uuid4
         checklist.public_id = str(uuid4())
-        db.commit()
-        db.refresh(checklist)
+    checklist.is_public = 1
+    db.commit()
+    db.refresh(checklist)
     public_url = f"http://localhost:8080/public/{checklist.public_id}"
     return {"public_url": public_url}
 
@@ -202,7 +205,7 @@ def clone_checklist(checklist_id: int, db: Session = Depends(get_db)):
 @app.get("/public/{public_id}", response_model=ChecklistSchema)
 def get_public_checklist(public_id: str, db: Session = Depends(get_db)):
     checklist = db.query(Checklist).filter(Checklist.public_id == public_id).first()
-    if not checklist:
+    if not checklist or not checklist.is_public:
         raise HTTPException(status_code=404, detail="Checklist not found")
     return checklist
 
@@ -228,6 +231,41 @@ def upload_file(item_id: int, file: UploadFile = File(...), db: Session = Depend
     db.commit()
     db.refresh(upload)
     return upload
+
+@app.delete("/uploads/{file_id}")
+def delete_upload(file_id: int, db: Session = Depends(get_db)):
+    upload = db.query(FileUpload).filter(FileUpload.id == file_id).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="File not found")
+    # Remove file from disk
+    try:
+        if os.path.exists(upload.path):
+            os.remove(upload.path)
+    except Exception as e:
+        pass  # Ignore file system errors
+    db.delete(upload)
+    db.commit()
+    return {"ok": True}
+
+from fastapi.responses import FileResponse
+
+@app.get("/public_uploads/{file_id}")
+def serve_public_upload(file_id: int, db: Session = Depends(get_db)):
+    upload = db.query(FileUpload).filter(FileUpload.id == file_id).first()
+    if not upload:
+        raise HTTPException(status_code=404, detail="File not found")
+    # Check if parent checklist is public
+    item = db.query(Item).filter(Item.id == upload.item_id).first()
+    if not item:
+        raise HTTPException(status_code=404, detail="Item not found")
+    category = db.query(Category).filter(Category.id == item.category_id).first()
+    if not category:
+        raise HTTPException(status_code=404, detail="Category not found")
+    checklist = db.query(Checklist).filter(Checklist.id == category.checklist_id).first()
+    if not checklist or not checklist.is_public:
+        raise HTTPException(status_code=403, detail="Checklist is not public")
+    # Serve file
+    return FileResponse(upload.path, filename=upload.filename)
 
 @app.get("/")
 def root():

@@ -76,7 +76,24 @@ const ChecklistPublicView: React.FC = () => {
               <h3 className="text-lg font-semibold">{cat.name}</h3>
               <ul className="list-disc ml-6">
                 {cat.items.map((item) => (
-                  <li key={item.id} className="mb-1">{item.name}</li>
+                  <li key={item.id} className="mb-1">
+                    {item.name}
+                    {item.uploads && item.uploads.length > 0 && (
+                      <div className="ml-2 text-xs text-gray-600">
+                        Uploaded: {item.uploads.map((f: any, i: number) => (
+                          <a
+                            key={f.id}
+                            href={`http://localhost:8000/public_uploads/${f.id}`}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="underline mr-2"
+                          >
+                            {f.filename}
+                          </a>
+                        ))}
+                      </div>
+                    )}
+                  </li>
                 ))}
               </ul>
             </div>

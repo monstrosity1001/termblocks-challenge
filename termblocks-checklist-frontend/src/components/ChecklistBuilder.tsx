@@ -3,13 +3,24 @@ import { useLocation, useNavigate } from 'react-router-dom';
 
 interface ItemInput {
   name: string;
+  uploads?: UploadedFile[];
 }
+
+interface UploadedFile {
+  id: number;
+  filename: string;
+  path: string;
+} 
 interface CategoryInput {
   name: string;
   items: ItemInput[];
 }
 
 const ChecklistBuilder: React.FC = () => {
+  // Track file inputs by [catIdx][itemIdx]
+  const [itemFiles, setItemFiles] = useState<{ [key: string]: File | null }>({});
+  const [uploading, setUploading] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<{ [key: string]: number }>({});
   const [snackbar, setSnackbar] = useState<string | null>(null);
   const [errors, setErrors] = useState<{ title?: string; categories?: string[] }>({});
   const [submitting, setSubmitting] = useState(false);
@@ -28,7 +39,10 @@ const ChecklistBuilder: React.FC = () => {
       setCategories(
         checklist.categories?.map((cat: any) => ({
           name: cat.name,
-          items: cat.items.map((item: any) => ({ name: item.name }))
+          items: cat.items.map((item: any) => ({
+            name: item.name,
+            uploads: item.uploads || []
+          }))
         })) || []
       );
     }
@@ -77,6 +91,7 @@ const ChecklistBuilder: React.FC = () => {
         setErrors(newErrors);
         if (!valid) return;
         setSubmitting(true);
+        setUploading(false);
         const payload = {
           title,
           description,
@@ -101,15 +116,52 @@ const ChecklistBuilder: React.FC = () => {
           });
           if (!res.ok) throw new Error(`Failed to ${method === 'POST' ? 'create' : 'update'} checklist`);
           const checklistData = await res.json();
-          // Redirect to view modal on list page
-          navigate('/', { state: { viewChecklist: checklistData } });
+
+          // Upload files for items with a file selected (with progress)
+          setUploading(true);
+          const uploadProgress: { [key: string]: number } = {};
+          const uploadPromises: Promise<any>[] = [];
+          checklistData.categories.forEach((cat: any, catIdx: number) => {
+            cat.items.forEach((item: any, itemIdx: number) => {
+              const file = itemFiles[`${catIdx}-${itemIdx}`];
+              if (file) {
+                uploadProgress[`${catIdx}-${itemIdx}`] = 0;
+                const formData = new FormData();
+                formData.append('file', file);
+                // Use XMLHttpRequest for progress
+                uploadPromises.push(new Promise((resolve, reject) => {
+                  const xhr = new XMLHttpRequest();
+                  xhr.open('POST', `http://localhost:8000/items/${item.id}/upload`);
+                  xhr.onload = () => resolve(xhr.response);
+                  xhr.onerror = () => reject(xhr.statusText);
+                  xhr.upload.onprogress = (e) => {
+                    if (e.lengthComputable) {
+                      uploadProgress[`${catIdx}-${itemIdx}`] = Math.round((e.loaded / e.total) * 100);
+                      setUploadProgress({ ...uploadProgress });
+                    }
+                  };
+                  xhr.send(formData);
+                }));
+              }
+            });
+          });
+          if (uploadPromises.length > 0) {
+            await Promise.all(uploadPromises);
+          }
+          setUploading(false);
+          setUploadProgress({});
+          // Refetch checklist to get uploaded files
+          const checklistResp = await fetch(`http://localhost:8000/checklists/${checklistData.id}`);
+          const checklistWithUploads = await checklistResp.json();
+          navigate('/', { state: { viewChecklist: checklistWithUploads } });
           setSnackbar(successMsg);
         } catch (err: any) {
           setSnackbar(err.message || 'Error submitting checklist');
         } finally {
           setSubmitting(false);
+          setUploading(false);
         }
-      }}>
+      }}> 
 
         <div>
           <label className="block font-medium">Title</label>
@@ -139,16 +191,67 @@ const ChecklistBuilder: React.FC = () => {
               <div className="ml-4">
                 <label className="block font-medium mb-1">Items</label>
                 {cat.items.map((item, itemIdx) => (
-                  <div key={itemIdx} className="flex items-center mb-1">
+                  <div key={itemIdx} className="flex flex-col sm:flex-row items-start sm:items-center mb-1 gap-2">
                     <input
                       className="border rounded px-2 py-1 flex-1"
                       value={item.name}
                       onChange={e => updateItemName(catIdx, itemIdx, e.target.value)}
                       placeholder="Item name"
                     />
-                    <button type="button" className="ml-2 text-red-500" onClick={() => removeItem(catIdx, itemIdx)}>
+                    <input
+                      type="file"
+                      accept=".txt,.pdf,.xlsx"
+                      className="ml-2"
+                      onChange={e => {
+                        const file = e.target.files?.[0] || null;
+                        setItemFiles(prev => ({ ...prev, [`${catIdx}-${itemIdx}`]: file }));
+                      }}
+                    />
+                    <button type="button" className="text-red-500" onClick={() => removeItem(catIdx, itemIdx)}>
                       Remove
                     </button>
+                    {/* Show uploaded files if editing */}
+                    {item.uploads && item.uploads.length > 0 && (
+                      <div className="ml-2 text-xs text-gray-600 flex flex-wrap items-center gap-2">
+                        Uploaded: {item.uploads.map((f, i) => (
+                          <span key={f.id} className="flex items-center gap-1">
+                            <a
+                              href={`http://localhost:8000/public_uploads/${f.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline"
+                            >
+                              {f.filename}
+                            </a>
+                            <button
+                              type="button"
+                              className="text-red-400 hover:text-red-700 ml-1"
+                              title="Remove file"
+                              onClick={async () => {
+                                if (!window.confirm('Remove this file?')) return;
+                                await fetch(`http://localhost:8000/uploads/${f.id}`, { method: 'DELETE' });
+                                // Refetch checklist to update uploads
+                                if (checklist?.id) {
+                                  const resp = await fetch(`http://localhost:8000/checklists/${checklist.id}`);
+                                  const updated = await resp.json();
+                                  setCategories(
+                                    updated.categories.map((cat: any) => ({
+                                      name: cat.name,
+                                      items: cat.items.map((item: any) => ({
+                                        name: item.name,
+                                        uploads: item.uploads || []
+                                      }))
+                                    }))
+                                  );
+                                }
+                              }}
+                            >
+                              ×
+                            </button>
+                          </span>
+                        ))}
+                      </div>
+                    )} 
                   </div>
                 ))}
                 <button type="button" className="mt-1 text-blue-600" onClick={() => addItem(catIdx)}>

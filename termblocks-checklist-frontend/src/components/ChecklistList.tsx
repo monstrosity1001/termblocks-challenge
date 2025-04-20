@@ -128,7 +128,24 @@ const ChecklistList: React.FC = () => {
                 <div className="font-semibold">{cat.name}</div>
                 <ul className="list-disc ml-6">
                   {cat.items.map((item: any) => (
-                    <li key={item.id}>{item.name}</li>
+                    <li key={item.id}>
+                      {item.name}
+                      {item.uploads && item.uploads.length > 0 && (
+                        <div className="ml-2 text-xs text-gray-600">
+                          Uploaded: {item.uploads.map((f: any, i: number) => (
+                            <a
+                              key={f.id}
+                              href={`http://localhost:8000/public_uploads/${f.id}`}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="underline mr-2"
+                            >
+                              {f.filename}
+                            </a>
+                          ))}
+                        </div>
+                      )}
+                    </li>
                   ))}
                 </ul>
               </div>
