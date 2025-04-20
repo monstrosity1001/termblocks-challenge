@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 interface ItemInput {
   name: string;
@@ -10,7 +10,11 @@ interface CategoryInput {
 }
 
 const ChecklistBuilder: React.FC = () => {
+  const [snackbar, setSnackbar] = useState<string | null>(null);
+  const [errors, setErrors] = useState<{ title?: string; categories?: string[] }>({});
+  const [submitting, setSubmitting] = useState(false);
   const location = useLocation();
+  const navigate = useNavigate();
   const checklist = (location.state as any)?.checklist;
 
   const [title, setTitle] = useState('');
@@ -30,6 +34,13 @@ const ChecklistBuilder: React.FC = () => {
     }
   }, [checklist]);
 
+  useEffect(() => {
+    if (snackbar) {
+      const t = setTimeout(() => setSnackbar(null), 2500);
+      return () => clearTimeout(t);
+    }
+  }, [snackbar]);
+
   const addCategory = () => setCategories([...categories, { name: '', items: [] }]);
   const removeCategory = (idx: number) => setCategories(categories.filter((_, i) => i !== idx));
   const updateCategoryName = (idx: number, name: string) => setCategories(categories.map((cat, i) => i === idx ? { ...cat, name } : cat));
@@ -40,9 +51,32 @@ const ChecklistBuilder: React.FC = () => {
 
   return (
     <div className="p-4">
-      <h2 className="text-xl font-semibold mb-2">Checklist Builder</h2>
+      <h2 className="text-xl font-semibold mb-2">{checklist ? 'Edit Checklist' : 'Create Checklist'}</h2>
       <form className="space-y-4" onSubmit={async e => {
         e.preventDefault();
+        // Validation
+        let valid = true;
+        const newErrors: { title?: string; categories?: string[] } = {};
+        if (!title.trim()) {
+          newErrors.title = 'Title is required';
+          valid = false;
+        }
+        const catErrors: string[] = [];
+        categories.forEach((cat, i) => {
+          if (!cat.name.trim()) {
+            catErrors[i] = 'Category name required';
+            valid = false;
+          } else if (cat.items.some(item => !item.name.trim())) {
+            catErrors[i] = 'All item names required';
+            valid = false;
+          } else {
+            catErrors[i] = '';
+          }
+        });
+        if (catErrors.some(Boolean)) newErrors.categories = catErrors;
+        setErrors(newErrors);
+        if (!valid) return;
+        setSubmitting(true);
         const payload = {
           title,
           description,
@@ -66,20 +100,21 @@ const ChecklistBuilder: React.FC = () => {
             body: JSON.stringify(payload)
           });
           if (!res.ok) throw new Error(`Failed to ${method === 'POST' ? 'create' : 'update'} checklist`);
-          if (method === 'POST') {
-            setTitle('');
-            setDescription('');
-            setCategories([]);
-          }
-          alert(successMsg);
+          const checklistData = await res.json();
+          // Redirect to view modal on list page
+          navigate('/', { state: { viewChecklist: checklistData } });
+          setSnackbar(successMsg);
         } catch (err: any) {
-          alert(err.message || 'Error submitting checklist');
+          setSnackbar(err.message || 'Error submitting checklist');
+        } finally {
+          setSubmitting(false);
         }
       }}>
 
         <div>
           <label className="block font-medium">Title</label>
           <input className="border rounded px-2 py-1 w-full" value={title} onChange={e => setTitle(e.target.value)} placeholder="Checklist title" />
+          {errors.title && <div className="text-red-500 text-sm mt-1">{errors.title}</div>}
         </div>
         <div>
           <label className="block font-medium">Description</label>
@@ -100,6 +135,7 @@ const ChecklistBuilder: React.FC = () => {
                   Remove
                 </button>
               </div>
+              {errors.categories && errors.categories[catIdx] && <div className="text-red-500 text-sm mb-1">{errors.categories[catIdx]}</div>}
               <div className="ml-4">
                 <label className="block font-medium mb-1">Items</label>
                 {cat.items.map((item, itemIdx) => (
@@ -120,18 +156,36 @@ const ChecklistBuilder: React.FC = () => {
                 </button>
               </div>
             </div>
-          ))}
+          ))} 
           <button type="button" className="mt-2 text-blue-700 font-semibold" onClick={addCategory}>
             + Add Category
           </button>
         </div>
-        <button
-          type="submit"
-          className="w-full mt-6 py-3 bg-blue-600 text-white text-lg font-bold rounded shadow hover:bg-blue-700 transition"
-        >
-          Submit Checklist
-        </button>
+        <div className="flex gap-2 mt-6">
+          <button
+            type="submit"
+            className="flex-1 py-3 bg-blue-600 text-white text-lg font-bold rounded shadow hover:bg-blue-700 transition disabled:opacity-60"
+            disabled={submitting}
+          >
+            {submitting ? (
+              <span className="flex items-center justify-center"><svg className="animate-spin h-5 w-5 mr-2 inline-block" viewBox="0 0 24 24"><circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" /><path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" /></svg>Saving...</span>
+            ) : checklist ? 'Update Checklist' : 'Create Checklist'}
+          </button>
+          <button
+            type="button"
+            className="flex-1 py-3 bg-gray-300 text-gray-800 text-lg font-bold rounded shadow hover:bg-gray-400 transition"
+            onClick={() => navigate('/')}
+            disabled={submitting}
+          >
+            Cancel
+          </button>
+        </div>
       </form>
+      {snackbar && (
+        <div className="fixed bottom-8 left-1/2 transform -translate-x-1/2 bg-gray-900 text-white px-6 py-3 rounded shadow-lg z-50 animate-fadein">
+          {snackbar}
+        </div>
+      )}
     </div>
   );
 };

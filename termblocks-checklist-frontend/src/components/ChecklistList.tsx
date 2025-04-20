@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useChecklistStore } from '../store/checklistStore';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useLocation } from 'react-router-dom';
 
 const ChecklistList: React.FC = () => {
   const checklists = useChecklistStore((s) => s.checklists);
@@ -9,6 +9,16 @@ const ChecklistList: React.FC = () => {
   const [error, setError] = useState<string | null>(null);
   const [viewChecklist, setViewChecklist] = useState<any | null>(null);
   const navigate = useNavigate();
+  const location = useLocation();
+
+  // If navigated with viewChecklist in state, open modal
+  useEffect(() => {
+    if ((location.state as any)?.viewChecklist) {
+      setViewChecklist((location.state as any).viewChecklist);
+      // Clear state so modal doesn't reopen on back
+      navigate(location.pathname, { replace: true, state: {} });
+    }
+  }, [location, navigate]);
 
   const handleEditChecklist = (cl: any) => {
     navigate('/builder', { state: { checklist: cl } });
