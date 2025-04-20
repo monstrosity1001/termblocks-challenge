@@ -17,6 +17,7 @@ export interface Checklist {
   title: string;
   description: string;
   public_id: string;
+  is_public: boolean;
   categories: ChecklistCategory[];
 }
 
