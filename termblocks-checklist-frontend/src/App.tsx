@@ -8,7 +8,7 @@ const App: React.FC = () => {
 
   return (
     <div className="min-h-screen bg-gray-50 flex flex-col items-center">
-      <div style={{ color: 'red', fontSize: 24, margin: 8 }}>DEBUG: App is rendering</div>
+
       <header className="w-full bg-white shadow p-4 flex flex-col items-center">
         <h1 className="text-3xl font-bold text-blue-700">Termblocks Checklist Builder</h1>
         <nav className="mt-2 flex gap-4">

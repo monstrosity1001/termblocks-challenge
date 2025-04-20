@@ -99,7 +99,12 @@ const ChecklistBuilder: React.FC = () => {
             + Add Category
           </button>
         </div>
-        {/* Submit button will be added when backend integration is done */}
+        <button
+          type="submit"
+          className="w-full mt-6 py-3 bg-blue-600 text-white text-lg font-bold rounded shadow hover:bg-blue-700 transition"
+        >
+          Submit Checklist
+        </button>
       </form>
     </div>
   );

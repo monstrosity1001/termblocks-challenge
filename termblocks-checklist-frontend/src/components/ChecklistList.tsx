@@ -59,7 +59,7 @@ const ChecklistList: React.FC = () => {
               <button
                 className="px-2 py-1 bg-green-100 text-green-800 rounded hover:bg-green-200"
                 onClick={() => {
-                  const url = `${window.location.origin}/public/${cl.public_id}`;
+                  const url = `${window.location.origin}/?id=${cl.public_id}`;
                   navigator.clipboard.writeText(url);
                   alert('Public link copied to clipboard!');
                 }}
