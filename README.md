@@ -2,7 +2,7 @@
 
 A full-stack, user-authenticated checklist builder for the Termblocks Full Stack Engineer case study.
 
-## 🌟 Project Overview
+## Project Overview
 - **User Authentication:** Users register/login with a username. All checklists are associated with their creator.
 - **Checklist Management:** Create, edit, and clone checklists with nested categories and items.
 - **File Uploads:** Attach `.txt`, `.pdf`, or `.xlsx` files (max 10MB) to checklist items.
