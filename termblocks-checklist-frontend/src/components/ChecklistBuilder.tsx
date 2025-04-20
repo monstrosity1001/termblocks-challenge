@@ -24,7 +24,33 @@ const ChecklistBuilder: React.FC = () => {
   return (
     <div className="p-4">
       <h2 className="text-xl font-semibold mb-2">Checklist Builder</h2>
-      <form className="space-y-4">
+      <form className="space-y-4" onSubmit={async e => {
+        e.preventDefault();
+        const payload = {
+          title,
+          description,
+          categories: categories.map(cat => ({
+            name: cat.name,
+            items: cat.items.map(item => ({ name: item.name }))
+          }))
+        };
+        try {
+          const res = await fetch('http://localhost:8000/checklists', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(payload)
+          });
+          if (!res.ok) throw new Error('Failed to create checklist');
+          // Reset form
+          setTitle('');
+          setDescription('');
+          setCategories([]);
+          alert('Checklist created successfully!');
+        } catch (err: any) {
+          alert(err.message || 'Error creating checklist');
+        }
+      }}>
+
         <div>
           <label className="block font-medium">Title</label>
           <input className="border rounded px-2 py-1 w-full" value={title} onChange={e => setTitle(e.target.value)} placeholder="Checklist title" />
