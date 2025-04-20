@@ -1,6 +1,6 @@
 # Termblocks Custom Checklist Builder
 
-A full-stack, user-authenticated checklist builder for the Termblocks Full Stack Engineer case study.
+A full-stack, user-authenticated checklist builder for the Termblocks Full Stack Engineer.
 
 ## Project Overview
 - **User Authentication:** Users register/login with a username. All checklists are associated with their creator.
