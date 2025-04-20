@@ -170,6 +170,19 @@ def delete_checklist(checklist_id: int, db: Session = Depends(get_db)):
     db.commit()
     return {"ok": True}
 
+@app.post("/checklists/{checklist_id}/make_public")
+def make_public_checklist(checklist_id: int, db: Session = Depends(get_db)):
+    checklist = db.query(Checklist).filter(Checklist.id == checklist_id).first()
+    if not checklist:
+        raise HTTPException(status_code=404, detail="Checklist not found")
+    if not checklist.public_id:
+        from uuid import uuid4
+        checklist.public_id = str(uuid4())
+        db.commit()
+        db.refresh(checklist)
+    public_url = f"http://localhost:8080/public/{checklist.public_id}"
+    return {"public_url": public_url}
+
 @app.post("/checklists/{checklist_id}/clone", response_model=ChecklistSchema)
 def clone_checklist(checklist_id: int, db: Session = Depends(get_db)):
     orig = db.query(Checklist).filter(Checklist.id == checklist_id).first()

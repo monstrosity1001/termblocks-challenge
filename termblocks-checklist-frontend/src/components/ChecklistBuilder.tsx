@@ -1,4 +1,5 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useLocation } from 'react-router-dom';
 
 interface ItemInput {
   name: string;
@@ -9,9 +10,25 @@ interface CategoryInput {
 }
 
 const ChecklistBuilder: React.FC = () => {
+  const location = useLocation();
+  const checklist = (location.state as any)?.checklist;
+
   const [title, setTitle] = useState('');
   const [description, setDescription] = useState('');
   const [categories, setCategories] = useState<CategoryInput[]>([]);
+
+  useEffect(() => {
+    if (checklist) {
+      setTitle(checklist.title || '');
+      setDescription(checklist.description || '');
+      setCategories(
+        checklist.categories?.map((cat: any) => ({
+          name: cat.name,
+          items: cat.items.map((item: any) => ({ name: item.name }))
+        })) || []
+      );
+    }
+  }, [checklist]);
 
   const addCategory = () => setCategories([...categories, { name: '', items: [] }]);
   const removeCategory = (idx: number) => setCategories(categories.filter((_, i) => i !== idx));
@@ -35,19 +52,28 @@ const ChecklistBuilder: React.FC = () => {
           }))
         };
         try {
-          const res = await fetch('http://localhost:8000/checklists', {
-            method: 'POST',
+          let url = 'http://localhost:8000/checklists';
+          let method = 'POST';
+          let successMsg = 'Checklist created successfully!';
+          if (checklist?.id) {
+            url = `http://localhost:8000/checklists/${checklist.id}`;
+            method = 'PUT';
+            successMsg = 'Checklist updated successfully!';
+          }
+          const res = await fetch(url, {
+            method,
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(payload)
           });
-          if (!res.ok) throw new Error('Failed to create checklist');
-          // Reset form
-          setTitle('');
-          setDescription('');
-          setCategories([]);
-          alert('Checklist created successfully!');
+          if (!res.ok) throw new Error(`Failed to ${method === 'POST' ? 'create' : 'update'} checklist`);
+          if (method === 'POST') {
+            setTitle('');
+            setDescription('');
+            setCategories([]);
+          }
+          alert(successMsg);
         } catch (err: any) {
-          alert(err.message || 'Error creating checklist');
+          alert(err.message || 'Error submitting checklist');
         }
       }}>
 
